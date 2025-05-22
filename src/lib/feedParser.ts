@@ -1,51 +1,144 @@
 import { XMLParser } from 'fast-xml-parser';
 
-interface HNRssItem {
+// Common interfaces for RSS feeds
+interface RssItem {
   title: string;
   link: string;
   pubDate: string;
-  comments: string; // This will be our unique ID
+  description?: string;
+}
+
+interface HNRssItem extends RssItem {
+  comments: string;
   description: string;
   'dc:creator': string;
 }
 
-interface HNRssFeed {
+interface RedditRssItem extends RssItem {
+  content: string;
+  author: string;
+  category?: string;
+}
+
+interface RssFeed {
   rss: {
     channel: {
-      item: HNRssItem[];
+      item: RssItem[];
     };
   };
 }
 
-export async function fetchAndParseFeed(url: string) {
+// Common function to fetch XML feed
+async function fetchXmlFeed(url: string) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch feed: ${response.status} ${response.statusText}`);
+  }
+  return await response.text();
+}
+
+// Parse HackerNews feed
+export async function parseHackerNewsFeed(xmlData: string) {
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: "",
+    isArray: (name) => name === 'item', // Ensure 'item' is always an array
+  });
+  
+  const result = parser.parse(xmlData) as RssFeed;
+  const items = result.rss.channel.item as HNRssItem[];
+  
+  return items.map(item => {
+    return {
+      title: item.title.replace(/ \([0-9]+ points\)$/, '').trim(), // Clean title and trim
+      link: item.link,
+      pubDate: new Date(item.pubDate),
+      type: 'article',
+      source: 'hackernews'
+    };
+  });
+}
+
+// Interface for Reddit Atom Feed
+interface RedditAtomFeed {
+  feed: {
+    entry: RedditAtomEntry[];
+  };
+}
+
+interface RedditAtomEntry {
+  title: string | { toString: () => string };
+  link: { href: string; rel?: string }[] | { href: string; rel?: string } | string;
+  published: string;
+  updated: string;
+  category?: { term: string } | { term: string }[];
+}
+
+// Parse Reddit feed (Atom format)
+export async function parseRedditFeed(xmlData: string, feedName: string) {
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: "",
+    isArray: (name) => name === 'entry', // Ensure 'entry' is always an array
+  });
+  
   try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch feed: ${response.status} ${response.statusText}`);
-    }
+    const result = parser.parse(xmlData) as RedditAtomFeed;
+    const entries = result.feed.entry;
     
-    const xmlData = await response.text();
-    const parser = new XMLParser({
-      ignoreAttributes: false,
-      attributeNamePrefix: "",
-    });
-    
-    const result = parser.parse(xmlData) as HNRssFeed;
-    const items = result.rss.channel.item;
-    
-    return items.map(item => {
-      // Clean up the data - we no longer need points or id extraction 
-      // as we're using SERIAL for IDs
+    return entries.map(entry => {
+      // Handle link which can be an object with href or an array of objects
+      let link = "";
+      if (typeof entry.link === 'string') {
+        link = entry.link;
+      } else if (Array.isArray(entry.link)) {
+        // Find the first link or the one with rel="alternate"
+        const alternateLink = entry.link.find(l => l.rel === 'alternate');
+        link = alternateLink ? alternateLink.href : entry.link[0].href;
+      } else if (entry.link && entry.link.href) {
+        link = entry.link.href;
+      }
       
-      // Convert to our database format with simplified fields
+      // Extract category if available
+      let category = 'article';
+      if (entry.category) {
+        if (Array.isArray(entry.category)) {
+          // Use the first category
+          category = entry.category[0].term || 'article';
+        } else if (typeof entry.category === 'object') {
+          category = entry.category.term || 'article';
+        } else if (typeof entry.category === 'string') {
+          category = entry.category;
+        }
+      }
+      
       return {
-        title: item.title.replace(/ \([0-9]+ points\)$/, ''), // Clean title
-        link: item.link,
-        pubDate: new Date(item.pubDate),
-        type: 'article', // Default type for all HN items
-        source: 'hn' // Explicitly set the source as Hacker News
+        title: typeof entry.title === 'string' ? entry.title : entry.title.toString(),
+        link: link,
+        pubDate: new Date(entry.published || entry.updated),
+        type: category,
+        source: feedName // Use the feed name as the source
       };
     });
+  } catch (error) {
+    console.error('Error parsing Reddit feed:', error);
+    throw error;
+  }
+}
+
+// Main function to fetch and parse feeds based on type
+export async function fetchAndParseFeed(url: string, type: string, name: string) {
+  try {
+    const xmlData = await fetchXmlFeed(url);
+    
+    switch (type.toLowerCase()) {
+      case 'hackernews':
+        return await parseHackerNewsFeed(xmlData);
+      case 'reddit':
+        return await parseRedditFeed(xmlData, name);
+      default:
+        throw new Error(`Unsupported feed type: ${type}`);
+    }
   } catch (error) {
     console.error('Error fetching and parsing feed:', error);
     throw error;

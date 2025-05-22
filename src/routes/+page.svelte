@@ -232,19 +232,23 @@
                 >
                     <div class="flex-1">
                         <h3 class="font-medium text-base">
-                            <a href={item.comments_url} target="_blank" rel="noopener noreferrer" class="hover:text-indigo-600 hover:underline">
+                            <a href={item.link} target="_blank" rel="noopener noreferrer" class="hover:text-indigo-600 hover:underline">
                                 {item.title}
                             </a>
                         </h3>
                         <div class="flex items-center mt-1">
-                            {#if item.source === 'hn'}
-                                <div class="h-4 w-4 bg-orange-600 flex items-center justify-center rounded mr-1">
-                                    <span class="text-white text-xs font-bold">Y</span>
+                            {#if item.source === 'hackernews'}
+                                <div class="h-5 w-5 bg-orange-500 flex items-center justify-center rounded mr-1">
+                                    <span class="text-white text-xs font-bold">H</span>
+                                </div>
+                            {:else if item.source === 'r/factorio'}
+                                <div class="h-5 w-5 bg-yellow-700 flex items-center justify-center rounded mr-1">
+                                    <span class="text-white text-xs font-bold">F</span>
                                 </div>
                             {:else}
-                                <!-- Fallback for other sources -->
-                                <div class="h-4 w-4 bg-gray-400 flex items-center justify-center rounded mr-1">
-                                    <span class="text-white text-xs font-bold">?</span>
+                                <!-- Dynamic source initial -->
+                                <div class="h-5 w-5 bg-gray-500 flex items-center justify-center rounded mr-1">
+                                    <span class="text-white text-xs font-bold">{item.source ? item.source[0].toUpperCase() : '?'}</span>
                                 </div>
                             {/if}
                             <p class="text-xs text-gray-500">
