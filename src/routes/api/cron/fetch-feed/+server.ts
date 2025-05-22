@@ -28,8 +28,10 @@ export async function GET({ request }: RequestEvent) {
     // Insert items into the database
     const results = [];
     for (const item of feedItems) {
-      await insertFeedItem(item);
-      results.push({ id: item.id, title: item.title });
+      const result = await insertFeedItem(item);
+      // Get the inserted ID from the returning clause
+      const insertedId = result[0].id;
+      results.push({ id: insertedId, title: item.title });
     }
 
     return json({

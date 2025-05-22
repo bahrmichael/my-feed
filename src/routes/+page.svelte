@@ -237,9 +237,16 @@
                             </a>
                         </h3>
                         <div class="flex items-center mt-1">
-                            <div class="h-4 w-4 bg-orange-600 flex items-center justify-center rounded mr-1">
-                                <span class="text-white text-xs font-bold">Y</span>
-                            </div>
+                            {#if item.source === 'hn'}
+                                <div class="h-4 w-4 bg-orange-600 flex items-center justify-center rounded mr-1">
+                                    <span class="text-white text-xs font-bold">Y</span>
+                                </div>
+                            {:else}
+                                <!-- Fallback for other sources -->
+                                <div class="h-4 w-4 bg-gray-400 flex items-center justify-center rounded mr-1">
+                                    <span class="text-white text-xs font-bold">?</span>
+                                </div>
+                            {/if}
                             <p class="text-xs text-gray-500">
                                 {item.date}
                             </p>

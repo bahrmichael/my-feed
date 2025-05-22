@@ -24,17 +24,12 @@ export async function createTable() {
   try {
     await sql`
       CREATE TABLE IF NOT EXISTS feed_items (
-        id TEXT PRIMARY KEY,
+        id SERIAL PRIMARY KEY,
         title TEXT NOT NULL,
         link TEXT NOT NULL,
         pub_date TIMESTAMP NOT NULL,
-        description TEXT,
-        content TEXT,
-        author TEXT,
-        points INTEGER,
-        comments_count INTEGER,
-        comments_url TEXT,
         type TEXT DEFAULT 'article',
+        source TEXT DEFAULT 'hn',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
@@ -46,38 +41,22 @@ export async function createTable() {
 }
 
 export async function insertFeedItem(item: {
-  id: string;
   title: string;
   link: string;
   pubDate: Date;
-  description?: string;
-  content?: string;
-  author?: string;
-  points?: number;
-  commentsCount?: number;
-  commentsUrl?: string;
   type?: string;
+  source?: string;
 }) {
   try {
     // Convert Date to ISO string for Postgres compatibility
     const pubDateStr = item.pubDate.toISOString();
     
-    await sql`
-      INSERT INTO feed_items (id, title, link, pub_date, description, content, author, points, comments_count, comments_url, type)
-      VALUES (${item.id}, ${item.title}, ${item.link}, ${pubDateStr}, ${item.description || null}, 
-              ${item.content || null}, ${item.author || null}, ${item.points || 0}, ${item.commentsCount || 0}, ${item.commentsUrl || null}, ${item.type || 'article'})
-      ON CONFLICT (id) DO UPDATE SET
-        title = EXCLUDED.title,
-        link = EXCLUDED.link,
-        pub_date = EXCLUDED.pub_date,
-        description = EXCLUDED.description,
-        content = EXCLUDED.content,
-        author = EXCLUDED.author,
-        points = EXCLUDED.points,
-        comments_count = EXCLUDED.comments_count,
-        comments_url = EXCLUDED.comments_url,
-        type = EXCLUDED.type
+    const result = await sql`
+      INSERT INTO feed_items (title, link, pub_date, type, source)
+      VALUES (${item.title}, ${item.link}, ${pubDateStr}, ${item.type || 'article'}, ${item.source || 'hn'})
+      RETURNING id
     `;
+    return result;
   } catch (error) {
     console.error('Error inserting feed item:', error);
     throw error;

@@ -34,25 +34,16 @@ export async function fetchAndParseFeed(url: string) {
     const items = result.rss.channel.item;
     
     return items.map(item => {
-      // Extract points from title if available
-      const pointsMatch = item.title.match(/\(([0-9]+) points\)/);
-      const points = pointsMatch ? parseInt(pointsMatch[1], 10) : 0;
+      // Clean up the data - we no longer need points or id extraction 
+      // as we're using SERIAL for IDs
       
-      // Extract ID from comments URL
-      const id = item.comments.split('id=')[1];
-      
-      // Convert to our database format
+      // Convert to our database format with simplified fields
       return {
-        id,
         title: item.title.replace(/ \([0-9]+ points\)$/, ''), // Clean title
         link: item.link,
         pubDate: new Date(item.pubDate),
-        description: item.description,
-        author: item['dc:creator'],
-        points,
-        commentsCount: 0, // Would need additional parsing to get this
-        commentsUrl: item.comments,
-        type: 'article' // Default type for all HN items
+        type: 'article', // Default type for all HN items
+        source: 'hn' // Explicitly set the source as Hacker News
       };
     });
   } catch (error) {
