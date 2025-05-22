@@ -61,6 +61,9 @@
         // Set browser flag
         isBrowser = true;
         await loadFeedItems();
+
+        // Mark all non-bookmarked items as seen on initial load
+        await markUnseenItemsAsSeen();
     });
 
     // Mark an item as seen via API
@@ -136,35 +139,40 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    // Get items and check bookmark status for each
+                    // Get items
                     const items = data.items;
-                    const bookmarkChecks = await Promise.all(
-                        items.map(async (item: any) => {
-                            try {
-                                const res = await fetch(
-                                    `/api/bookmarks/${item.id}`,
-                                );
-                                const data = await res.json();
-                                return data.success ? data.bookmarked : false;
-                            } catch (e) {
-                                console.error(
-                                    "Error checking bookmark status:",
-                                    e,
-                                );
-                                return false;
-                            }
-                        }),
-                    );
+
+                    // Extract ids for batch bookmark check
+                    const itemIds = items.map((item: any) => item.id);
+
+                    // Fetch bookmark status for all items in a single request
+                    let bookmarkMap: Record<number, boolean> = {};
+                    try {
+                        const res = await fetch("/api/bookmarks/batch", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({ ids: itemIds }),
+                        });
+                        const bookmarkData = await res.json();
+                        if (bookmarkData.success) {
+                            bookmarkMap = bookmarkData.bookmarks;
+                        }
+                    } catch (e) {
+                        console.error(
+                            "Error checking batch bookmark status:",
+                            e,
+                        );
+                    }
 
                     // Format the items with bookmark status
-                    const formattedItems = items.map(
-                        (item: any, index: number) => ({
-                            ...item,
-                            date: new Date(item.pub_date).toLocaleDateString(),
-                            bookmarked: bookmarkChecks[index],
-                            seen: item.seen || false,
-                        }),
-                    );
+                    const formattedItems = items.map((item: any) => ({
+                        ...item,
+                        date: new Date(item.pub_date).toLocaleDateString(),
+                        bookmarked: bookmarkMap[item.id] || false,
+                        seen: item.seen || false,
+                    }));
 
                     // Append or replace items
                     feedItems = loadMore
@@ -279,7 +287,6 @@
                 <div class="relative border-b border-gray-200">
                     <a
                         href={item.link}
-                        target="_blank"
                         rel="noopener noreferrer"
                         on:click={() => markAsSeen(item.id)}
                     >
@@ -296,7 +303,6 @@
                     <div class="p-2 pb-10">
                         <a
                             href={item.link}
-                            target="_blank"
                             rel="noopener noreferrer"
                             on:click={() => markAsSeen(item.id)}
                             class="{item.seen && !item.bookmarked
@@ -360,7 +366,6 @@
                                     ? 'text-gray-400'
                                     : ''}"
                                 on:click={() => markAsSeen(item.id)}
-                                target="_blank"
                             >
                                 {item.title}
                             </a>

@@ -226,6 +226,36 @@ export async function isBookmarked(feedItemId: number) {
   }
 }
 
+export async function batchCheckBookmarks(feedItemIds: number[]) {
+  try {
+    if (feedItemIds.length === 0) return {};
+    
+    // Convert array to postgres array using unnest
+    const result = await sql`
+      SELECT feed_item_id FROM bookmarks
+      WHERE feed_item_id = ANY(${feedItemIds})
+    `;
+    
+    // Create a map of id -> bookmarked status
+    const bookmarkMap: Record<number, boolean> = {};
+    
+    // Initialize all requested IDs as false (not bookmarked)
+    feedItemIds.forEach(id => {
+      bookmarkMap[id] = false;
+    });
+    
+    // Set bookmarked items to true
+    result.forEach((row: { feed_item_id: number }) => {
+      bookmarkMap[row.feed_item_id] = true;
+    });
+    
+    return bookmarkMap;
+  } catch (error) {
+    console.error('Error batch checking bookmark status:', error);
+    throw error;
+  }
+}
+
 // Seen status operations
 export async function markAsSeen(feedItemId: number) {
   try {
