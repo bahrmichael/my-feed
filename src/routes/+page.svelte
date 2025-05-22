@@ -10,8 +10,14 @@
     let limit = 8;
     let bookmarks: Record<string, boolean> = {};
 
+    // Browser-only flag to prevent server-side fetch
+    let isBrowser = false;
+
     // Load feed items on mount
     onMount(() => {
+        // Set browser flag
+        isBrowser = true;
+        
         // Load bookmarks from localStorage
         const savedBookmarks = localStorage.getItem("bookmarks");
         if (savedBookmarks) {
@@ -22,7 +28,9 @@
 
     // Load feed items from API
     async function loadFeedItems(loadMore = false) {
-        if (loading) return;
+        // Skip if not in browser or already loading
+        if (!isBrowser || loading) return;
+        
         if (!loadMore) {
             offset = 0;
             feedItems = [];
@@ -106,8 +114,9 @@
 
     // Watch for feed type changes
     $: {
-        if (selectedFeed) {
+        if (selectedFeed && isBrowser) {
             // Reset and load new items when feed type changes
+            // Only execute if we're in the browser
             loadFeedItems();
         }
     }
@@ -232,7 +241,7 @@
                                 <span class="text-white text-xs font-bold">Y</span>
                             </div>
                             <p class="text-xs text-gray-500">
-                                {item.date} · {item.type}
+                                {item.date}
                             </p>
                         </div>
                     </div>
