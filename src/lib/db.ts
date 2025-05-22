@@ -13,6 +13,7 @@ export async function createTable() {
         author TEXT,
         points INTEGER,
         comments_count INTEGER,
+        type TEXT DEFAULT 'article',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
@@ -33,15 +34,16 @@ export async function insertFeedItem(item: {
   author?: string;
   points?: number;
   commentsCount?: number;
+  type?: string;
 }) {
   try {
     // Convert Date to ISO string for Postgres compatibility
     const pubDateStr = item.pubDate.toISOString();
     
     await sql`
-      INSERT INTO feed_items (id, title, link, pub_date, description, content, author, points, comments_count)
+      INSERT INTO feed_items (id, title, link, pub_date, description, content, author, points, comments_count, type)
       VALUES (${item.id}, ${item.title}, ${item.link}, ${pubDateStr}, ${item.description || null}, 
-              ${item.content || null}, ${item.author || null}, ${item.points || 0}, ${item.commentsCount || 0})
+              ${item.content || null}, ${item.author || null}, ${item.points || 0}, ${item.commentsCount || 0}, ${item.type || 'article'})
       ON CONFLICT (id) DO UPDATE SET
         title = EXCLUDED.title,
         link = EXCLUDED.link,
@@ -50,7 +52,8 @@ export async function insertFeedItem(item: {
         content = EXCLUDED.content,
         author = EXCLUDED.author,
         points = EXCLUDED.points,
-        comments_count = EXCLUDED.comments_count
+        comments_count = EXCLUDED.comments_count,
+        type = EXCLUDED.type
     `;
   } catch (error) {
     console.error('Error inserting feed item:', error);
@@ -58,14 +61,24 @@ export async function insertFeedItem(item: {
   }
 }
 
-export async function getFeedItems(limit = 50, offset = 0) {
+export async function getFeedItems(limit = 50, offset = 0, type?: string) {
   try {
-    const result = await sql`
-      SELECT * FROM feed_items 
-      ORDER BY pub_date DESC 
-      LIMIT ${limit} OFFSET ${offset}
-    `;
-    return result.rows;
+    let query;
+    if (type) {
+      query = await sql`
+        SELECT * FROM feed_items 
+        WHERE type = ${type}
+        ORDER BY pub_date DESC 
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+    } else {
+      query = await sql`
+        SELECT * FROM feed_items 
+        ORDER BY pub_date DESC 
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+    }
+    return query.rows;
   } catch (error) {
     console.error('Error fetching feed items:', error);
     throw error;

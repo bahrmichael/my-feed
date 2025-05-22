@@ -51,7 +51,8 @@ export async function fetchAndParseFeed(url: string) {
         author: item['dc:creator'],
         points,
         commentsCount: 0, // Would need additional parsing to get this
-        commentsUrl: item.comments
+        commentsUrl: item.comments,
+        type: 'article' // Default type for all HN items
       };
     });
   } catch (error) {
