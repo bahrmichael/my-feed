@@ -20,7 +20,7 @@
     let loading = false;
     let hasMore = true;
     let offset = 0;
-    let limit = 8;
+    let limit = 5;
 
     // Browser-only flag to prevent server-side fetch
     let isBrowser = false;
@@ -36,7 +36,7 @@
     async function loadFeedItems(loadMore = false) {
         // Skip if not in browser or already loading
         if (!isBrowser || loading) return;
-        
+
         if (!loadMore) {
             offset = 0;
             feedItems = [];
@@ -86,22 +86,29 @@
                     const bookmarkChecks = await Promise.all(
                         items.map(async (item: any) => {
                             try {
-                                const res = await fetch(`/api/bookmarks/${item.id}`);
+                                const res = await fetch(
+                                    `/api/bookmarks/${item.id}`,
+                                );
                                 const data = await res.json();
                                 return data.success ? data.bookmarked : false;
                             } catch (e) {
-                                console.error("Error checking bookmark status:", e);
+                                console.error(
+                                    "Error checking bookmark status:",
+                                    e,
+                                );
                                 return false;
                             }
-                        })
+                        }),
                     );
-                    
+
                     // Format the items with bookmark status
-                    const formattedItems = items.map((item: any, index: number) => ({
-                        ...item,
-                        date: new Date(item.pub_date).toLocaleDateString(),
-                        bookmarked: bookmarkChecks[index],
-                    }));
+                    const formattedItems = items.map(
+                        (item: any, index: number) => ({
+                            ...item,
+                            date: new Date(item.pub_date).toLocaleDateString(),
+                            bookmarked: bookmarkChecks[index],
+                        }),
+                    );
 
                     // Append or replace items
                     feedItems = loadMore
@@ -138,17 +145,17 @@
     // Toggle bookmark status
     async function toggleBookmark(id: number) {
         // Get current item
-        const item = feedItems.find(item => item.id === id);
+        const item = feedItems.find((item) => item.id === id);
         if (!item) return;
-        
+
         try {
             const isCurrentlyBookmarked = item.bookmarked;
-            
+
             // Call the appropriate API endpoint
-            const method = isCurrentlyBookmarked ? 'DELETE' : 'POST';
+            const method = isCurrentlyBookmarked ? "DELETE" : "POST";
             const response = await fetch(`/api/bookmarks/${id}`, { method });
             const data = await response.json();
-            
+
             if (data.success) {
                 // Update the feedItems to reflect bookmark change
                 feedItems = feedItems.map((item) => {
@@ -157,10 +164,10 @@
                     }
                     return item;
                 });
-                
+
                 // If we're in the bookmarked view and unbookmarked an item, remove it
                 if (selectedFeed === "Bookmarked" && isCurrentlyBookmarked) {
-                    feedItems = feedItems.filter(item => item.id !== id);
+                    feedItems = feedItems.filter((item) => item.id !== id);
                 }
             }
         } catch (error) {
@@ -256,23 +263,41 @@
                 >
                     <div class="flex-1">
                         <h3 class="font-medium text-base">
-                            <a href={item.link} target="_blank" rel="noopener noreferrer" class="hover:text-indigo-600 hover:underline">
+                            <a
+                                href={item.link}
+                                rel="noopener noreferrer"
+                                class="hover:text-indigo-600 hover:underline"
+                            >
                                 {item.title}
                             </a>
                         </h3>
                         <div class="flex items-center mt-1">
-                            {#if item.source === 'hackernews'}
-                                <div class="h-5 w-5 bg-orange-500 flex items-center justify-center rounded mr-1">
-                                    <span class="text-white text-xs font-bold">H</span>
+                            {#if item.source === "hackernews"}
+                                <div
+                                    class="h-5 w-5 bg-orange-500 flex items-center justify-center rounded mr-1"
+                                >
+                                    <span class="text-white text-xs font-bold"
+                                        >H</span
+                                    >
                                 </div>
-                            {:else if item.source === 'r/factorio'}
-                                <div class="h-5 w-5 bg-yellow-700 flex items-center justify-center rounded mr-1">
-                                    <span class="text-white text-xs font-bold">F</span>
+                            {:else if item.source === "Factorio"}
+                                <div
+                                    class="h-5 w-5 bg-yellow-500 flex items-center justify-center rounded mr-1"
+                                >
+                                    <span class="text-white text-xs font-bold"
+                                        >F</span
+                                    >
                                 </div>
                             {:else}
                                 <!-- Dynamic source initial -->
-                                <div class="h-5 w-5 bg-gray-500 flex items-center justify-center rounded mr-1">
-                                    <span class="text-white text-xs font-bold">{item.source ? item.source[0].toUpperCase() : '?'}</span>
+                                <div
+                                    class="h-5 w-5 bg-gray-500 flex items-center justify-center rounded mr-1"
+                                >
+                                    <span class="text-white text-xs font-bold"
+                                        >{item.source
+                                            ? item.source[0].toUpperCase()
+                                            : "?"}</span
+                                    >
                                 </div>
                             {/if}
                             <p class="text-xs text-gray-500">
