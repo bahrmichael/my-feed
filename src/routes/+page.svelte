@@ -1,14 +1,26 @@
 <script lang="ts">
     import { onMount } from "svelte";
 
+    // Define types
+    type FeedItem = {
+        id: number;
+        title: string;
+        link: string;
+        pub_date: string;
+        type: string;
+        source: string;
+        date?: string;
+        bookmarked: boolean;
+        imageUrl?: string;
+    };
+
     // Feed state
     let selectedFeed = "Articles";
-    let feedItems: any[] = [];
+    let feedItems: FeedItem[] = [];
     let loading = false;
     let hasMore = true;
     let offset = 0;
     let limit = 8;
-    let bookmarks: Record<string, boolean> = {};
 
     // Browser-only flag to prevent server-side fetch
     let isBrowser = false;
@@ -17,12 +29,6 @@
     onMount(() => {
         // Set browser flag
         isBrowser = true;
-        
-        // Load bookmarks from localStorage
-        const savedBookmarks = localStorage.getItem("bookmarks");
-        if (savedBookmarks) {
-            bookmarks = JSON.parse(savedBookmarks);
-        }
         loadFeedItems();
     });
 
@@ -38,34 +44,27 @@
 
         loading = true;
         try {
-            // For bookmarked view, we need a different approach
+            // For bookmarked view, use the bookmarks endpoint
             if (selectedFeed === "Bookmarked") {
-                // For bookmarked items, we need to load more from all types and filter
                 const response = await fetch(
-                    `/api/feed?limit=50&offset=${offset}`,
+                    `/api/bookmarks?limit=${limit}&offset=${offset}`,
                 );
                 const data = await response.json();
 
                 if (data.success) {
-                    // Format and filter only bookmarked items
-                    const allItems = data.items.map((item: any) => ({
+                    // Format the items
+                    const formattedItems = data.items.map((item: any) => ({
                         ...item,
                         date: new Date(item.pub_date).toLocaleDateString(),
-                        bookmarked: bookmarks[item.id] || false,
+                        bookmarked: true, // These are all bookmarked since they come from the bookmarks API
                     }));
-
-                    const bookmarkedItems = allItems.filter(
-                        (item: any) => bookmarks[item.id],
-                    );
 
                     // Append or replace items
                     feedItems = loadMore
-                        ? [...feedItems, ...bookmarkedItems]
-                        : bookmarkedItems;
-                    // Set hasMore based on whether any bookmarked items were found
-                    hasMore =
-                        bookmarkedItems.length > 0 && allItems.length === 50;
-                    offset = loadMore ? offset + 50 : 50;
+                        ? [...feedItems, ...formattedItems]
+                        : formattedItems;
+                    hasMore = formattedItems.length === limit;
+                    offset = loadMore ? offset + limit : limit;
                 }
             } else {
                 // Regular feed type filtering
@@ -82,11 +81,26 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    // Format the items
-                    const formattedItems = data.items.map((item: any) => ({
+                    // Get items and check bookmark status for each
+                    const items = data.items;
+                    const bookmarkChecks = await Promise.all(
+                        items.map(async (item: any) => {
+                            try {
+                                const res = await fetch(`/api/bookmarks/${item.id}`);
+                                const data = await res.json();
+                                return data.success ? data.bookmarked : false;
+                            } catch (e) {
+                                console.error("Error checking bookmark status:", e);
+                                return false;
+                            }
+                        })
+                    );
+                    
+                    // Format the items with bookmark status
+                    const formattedItems = items.map((item: any, index: number) => ({
                         ...item,
                         date: new Date(item.pub_date).toLocaleDateString(),
-                        bookmarked: bookmarks[item.id] || false,
+                        bookmarked: bookmarkChecks[index],
                     }));
 
                     // Append or replace items
@@ -122,25 +136,35 @@
     }
 
     // Toggle bookmark status
-    function toggleBookmark(id: string) {
-        bookmarks[id] = !bookmarks[id];
-        // Save to localStorage
-        localStorage.setItem("bookmarks", JSON.stringify(bookmarks));
-
-        // Update the feedItems to reflect bookmark change
-        feedItems = feedItems.map((item) => {
-            if (item.id === id) {
-                return { ...item, bookmarked: bookmarks[id] };
+    async function toggleBookmark(id: number) {
+        // Get current item
+        const item = feedItems.find(item => item.id === id);
+        if (!item) return;
+        
+        try {
+            const isCurrentlyBookmarked = item.bookmarked;
+            
+            // Call the appropriate API endpoint
+            const method = isCurrentlyBookmarked ? 'DELETE' : 'POST';
+            const response = await fetch(`/api/bookmarks/${id}`, { method });
+            const data = await response.json();
+            
+            if (data.success) {
+                // Update the feedItems to reflect bookmark change
+                feedItems = feedItems.map((item) => {
+                    if (item.id === id) {
+                        return { ...item, bookmarked: !isCurrentlyBookmarked };
+                    }
+                    return item;
+                });
+                
+                // If we're in the bookmarked view and unbookmarked an item, remove it
+                if (selectedFeed === "Bookmarked" && isCurrentlyBookmarked) {
+                    feedItems = feedItems.filter(item => item.id !== id);
+                }
             }
-            return item;
-        });
-
-        // If we're in the bookmarked view, we might need to refresh the list
-        if (selectedFeed === "Bookmarked" && !bookmarks[id]) {
-            // Remove the unbookmarked item from the view
-            feedItems = feedItems.filter(
-                (item) => item.id !== id || bookmarks[item.id],
-            );
+        } catch (error) {
+            console.error("Error toggling bookmark:", error);
         }
     }
 
@@ -189,7 +213,7 @@
                     <div class="absolute bottom-2 right-2">
                         <button
                             class="p-2 rounded-full bg-white/80 hover:bg-white transition-colors shadow"
-                            on:click={() => toggleBookmark(item.id)}
+                            on:click={() => toggleBookmark(Number(item.id))}
                         >
                             {#if item.bookmarked}
                                 <svg
@@ -259,7 +283,7 @@
 
                     <button
                         class="p-2 rounded-full hover:bg-gray-100 transition-colors"
-                        on:click={() => toggleBookmark(item.id)}
+                        on:click={() => toggleBookmark(Number(item.id))}
                     >
                         {#if item.bookmarked}
                             <svg

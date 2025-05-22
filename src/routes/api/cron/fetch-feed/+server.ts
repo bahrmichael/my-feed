@@ -8,14 +8,14 @@ const CRON_SECRET = process.env.CRON_SECRET;
 
 export async function GET({ request }: RequestEvent) {
   // Verify the request is from Vercel cron
-  // const authHeader = request.headers.get("authorization");
-  // if (
-  //   !authHeader ||
-  //   !authHeader.startsWith("Bearer ") ||
-  //   authHeader.split(" ")[1] !== CRON_SECRET
-  // ) {
-  //   return new Response("Unauthorized", { status: 401 });
-  // }
+  const authHeader = request.headers.get("authorization");
+  if (
+    !authHeader ||
+    !authHeader.startsWith("Bearer ") ||
+    authHeader.split(" ")[1] !== CRON_SECRET
+  ) {
+    return new Response("Unauthorized", { status: 401 });
+  }
 
   try {
     // Ensure the tables exist
@@ -23,16 +23,6 @@ export async function GET({ request }: RequestEvent) {
 
     // Get all configured feeds
     const feeds = await getFeeds();
-
-    if (feeds.length === 0) {
-      console.log("No feeds configured. Adding default Hacker News feed.");
-      // If no feeds exist, use the default HN feed for backward compatibility
-      feeds.push({
-        name: "Hacker News",
-        feed_url: "https://hnrss.org/newest?points=150",
-        type: "hackernews",
-      });
-    }
 
     const allResults = [];
 
@@ -51,13 +41,19 @@ export async function GET({ request }: RequestEvent) {
       const feedResults = [];
       for (const item of feedItems) {
         const result = await insertFeedItem(item);
-        // Get the inserted ID from the returning clause
-        const insertedId = result[0].id;
-        feedResults.push({
-          id: insertedId,
-          title: item.title,
-          source: item.source,
-        });
+        // Get the inserted ID from the returning clause if available
+        // If result[0] is undefined, it means the item already existed (ON CONFLICT DO NOTHING)
+        if (result && result.length > 0) {
+          const insertedId = result[0].id;
+          feedResults.push({
+            id: insertedId,
+            title: item.title,
+            source: item.source,
+          });
+        } else {
+          // Item already existed in database
+          console.log(`Skipping duplicate item: ${item.title}`);
+        }
       }
 
       allResults.push({

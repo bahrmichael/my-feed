@@ -1,14 +1,13 @@
 import { json } from "@sveltejs/kit";
-import { getFeedItems } from "$lib/db-neon";
+import { getBookmarks } from "$lib/db-neon";
 import type { RequestEvent } from "@sveltejs/kit";
 
 export async function GET({ url }: RequestEvent) {
   try {
     const limit = Number(url.searchParams.get("limit") || "50");
     const offset = Number(url.searchParams.get("offset") || "0");
-    const type = url.searchParams.get("type") || undefined;
 
-    const items = await getFeedItems(limit, offset, type);
+    const items = await getBookmarks(limit, offset);
 
     return json({
       success: true,
@@ -18,7 +17,7 @@ export async function GET({ url }: RequestEvent) {
       total: items.length,
     });
   } catch (error: any) {
-    console.error("Error fetching feed items:", error);
+    console.error("Error fetching bookmarked items:", error);
     return json(
       {
         success: false,
