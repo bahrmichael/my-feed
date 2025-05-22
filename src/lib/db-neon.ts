@@ -33,6 +33,7 @@ export async function createTable() {
         author TEXT,
         points INTEGER,
         comments_count INTEGER,
+        comments_url TEXT,
         type TEXT DEFAULT 'article',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -54,6 +55,7 @@ export async function insertFeedItem(item: {
   author?: string;
   points?: number;
   commentsCount?: number;
+  commentsUrl?: string;
   type?: string;
 }) {
   try {
@@ -61,9 +63,9 @@ export async function insertFeedItem(item: {
     const pubDateStr = item.pubDate.toISOString();
     
     await sql`
-      INSERT INTO feed_items (id, title, link, pub_date, description, content, author, points, comments_count, type)
+      INSERT INTO feed_items (id, title, link, pub_date, description, content, author, points, comments_count, comments_url, type)
       VALUES (${item.id}, ${item.title}, ${item.link}, ${pubDateStr}, ${item.description || null}, 
-              ${item.content || null}, ${item.author || null}, ${item.points || 0}, ${item.commentsCount || 0}, ${item.type || 'article'})
+              ${item.content || null}, ${item.author || null}, ${item.points || 0}, ${item.commentsCount || 0}, ${item.commentsUrl || null}, ${item.type || 'article'})
       ON CONFLICT (id) DO UPDATE SET
         title = EXCLUDED.title,
         link = EXCLUDED.link,
@@ -73,6 +75,7 @@ export async function insertFeedItem(item: {
         author = EXCLUDED.author,
         points = EXCLUDED.points,
         comments_count = EXCLUDED.comments_count,
+        comments_url = EXCLUDED.comments_url,
         type = EXCLUDED.type
     `;
   } catch (error) {

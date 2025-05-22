@@ -4,7 +4,7 @@ import type { RequestEvent } from "@sveltejs/kit";
 
 export async function GET({ url }: RequestEvent) {
   try {
-    const limit = Number(url.searchParams.get("limit") || "5");
+    const limit = Number(url.searchParams.get("limit") || "10");
     const offset = Number(url.searchParams.get("offset") || "0");
     const type = url.searchParams.get("type") || undefined;
 
