@@ -32,9 +32,17 @@ export async function createTable() {
         type TEXT DEFAULT 'article',
         source TEXT DEFAULT 'hn',
         image_url TEXT,
+        seen BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
+    
+    // Add seen column if it doesn't exist (for existing tables)
+    try {
+      await sql`ALTER TABLE feed_items ADD COLUMN IF NOT EXISTS seen BOOLEAN DEFAULT FALSE;`;
+    } catch (error) {
+      console.error('Error adding seen column:', error);
+    }
     
     // Create feeds configuration table
     await sql`
@@ -94,14 +102,14 @@ export async function getFeedItems(limit = 50, offset = 0, type?: string) {
     let result;
     if (type) {
       result = await sql`
-        SELECT * FROM feed_items 
+        SELECT id, title, link, pub_date, type, source, image_url, seen, created_at FROM feed_items 
         WHERE type = ${type}
         ORDER BY pub_date DESC 
         LIMIT ${limit} OFFSET ${offset}
       `;
     } else {
       result = await sql`
-        SELECT * FROM feed_items 
+        SELECT id, title, link, pub_date, type, source, image_url, seen, created_at FROM feed_items 
         ORDER BY pub_date DESC 
         LIMIT ${limit} OFFSET ${offset}
       `;
@@ -192,7 +200,7 @@ export async function removeBookmark(feedItemId: number) {
 export async function getBookmarks(limit = 50, offset = 0) {
   try {
     const result = await sql`
-      SELECT f.*
+      SELECT f.id, f.title, f.link, f.pub_date, f.type, f.source, f.image_url, f.seen, f.created_at
       FROM feed_items f
       JOIN bookmarks b ON f.id = b.feed_item_id
       ORDER BY b.created_at DESC
@@ -217,3 +225,20 @@ export async function isBookmarked(feedItemId: number) {
     throw error;
   }
 }
+
+// Seen status operations
+export async function markAsSeen(feedItemId: number) {
+  try {
+    const result = await sql`
+      UPDATE feed_items
+      SET seen = TRUE
+      WHERE id = ${feedItemId}
+      RETURNING id
+    `;
+    return result[0];
+  } catch (error) {
+    console.error('Error marking item as seen:', error);
+    throw error;
+  }
+}
+

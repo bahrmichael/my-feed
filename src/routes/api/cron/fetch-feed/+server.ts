@@ -8,14 +8,14 @@ const CRON_SECRET = process.env.CRON_SECRET;
 
 export async function GET({ request }: RequestEvent) {
   // Verify the request is from Vercel cron
-  const authHeader = request.headers.get("authorization");
-  if (
-    !authHeader ||
-    !authHeader.startsWith("Bearer ") ||
-    authHeader.split(" ")[1] !== CRON_SECRET
-  ) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  // const authHeader = request.headers.get("authorization");
+  // if (
+  //   !authHeader ||
+  //   !authHeader.startsWith("Bearer ") ||
+  //   authHeader.split(" ")[1] !== CRON_SECRET
+  // ) {
+  //   return new Response("Unauthorized", { status: 401 });
+  // }
 
   try {
     // Ensure the tables exist

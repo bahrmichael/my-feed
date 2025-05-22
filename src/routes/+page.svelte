@@ -12,6 +12,7 @@
         date?: string;
         bookmarked: boolean;
         imageUrl?: string;
+        seen?: boolean;
     };
 
     // Feed state
@@ -25,12 +26,65 @@
     // Browser-only flag to prevent server-side fetch
     let isBrowser = false;
 
+    // Helper function to mark all non-bookmarked items as seen
+    async function markUnseenItemsAsSeen() {
+        if (!isBrowser) return;
+
+        // Get all items that aren't seen and aren't bookmarked
+        const unseenItems = feedItems
+            .filter((item) => !item.seen && !item.bookmarked)
+            .map((item) => item.id);
+
+        // Mark them all as seen
+        if (unseenItems.length > 0) {
+            // Update UI immediately
+            feedItems = feedItems.map((item) => {
+                if (unseenItems.includes(item.id)) {
+                    return { ...item, seen: true };
+                }
+                return item;
+            });
+
+            // Call API to update database
+            await Promise.all(
+                unseenItems.map((id) =>
+                    fetch(`/api/seen/${id}`, { method: "POST" }).catch((e) =>
+                        console.error(`Error marking item ${id} as seen:`, e),
+                    ),
+                ),
+            );
+        }
+    }
+
     // Load feed items on mount
-    onMount(() => {
+    onMount(async () => {
         // Set browser flag
         isBrowser = true;
-        loadFeedItems();
+        await loadFeedItems();
     });
+
+    // Mark an item as seen via API
+    async function markAsSeen(id: number) {
+        if (!isBrowser) return;
+
+        try {
+            // Call the API to mark the item as seen
+            const response = await fetch(`/api/seen/${id}`, { method: "POST" });
+            const data = await response.json();
+
+            if (data.success) {
+                // Update the item in the local feed items list
+                feedItems = feedItems.map((item) => {
+                    if (item.id === id) {
+                        return { ...item, seen: true };
+                    }
+                    return item;
+                });
+            }
+        } catch (e) {
+            console.error("Error marking item as seen:", e);
+        }
+    }
 
     // Load feed items from API
     async function loadFeedItems(loadMore = false) {
@@ -57,6 +111,7 @@
                         ...item,
                         date: new Date(item.pub_date).toLocaleDateString(),
                         bookmarked: true, // These are all bookmarked since they come from the bookmarks API
+                        seen: item.seen || false,
                     }));
 
                     // Append or replace items
@@ -107,6 +162,7 @@
                             ...item,
                             date: new Date(item.pub_date).toLocaleDateString(),
                             bookmarked: bookmarkChecks[index],
+                            seen: item.seen || false,
                         }),
                     );
 
@@ -128,9 +184,14 @@
     }
 
     // Load more items when scrolling
-    function loadMore() {
+    async function loadMore() {
         if (!hasMore || loading) return;
-        loadFeedItems(true);
+
+        // Mark previously loaded items as seen
+        await markUnseenItemsAsSeen();
+
+        // Load more items
+        await loadFeedItems(true);
     }
 
     // Watch for feed type changes
@@ -138,7 +199,10 @@
         if (selectedFeed && isBrowser) {
             // Reset and load new items when feed type changes
             // Only execute if we're in the browser
-            loadFeedItems();
+            (async () => {
+                await loadFeedItems();
+                await markUnseenItemsAsSeen();
+            })();
         }
     }
 
@@ -160,6 +224,8 @@
                 // Update the feedItems to reflect bookmark change
                 feedItems = feedItems.map((item) => {
                     if (item.id === id) {
+                        // If we're unbookmarking and it was seen, it will now show as gray
+                        // If we're bookmarking, the seen status won't matter for display
                         return { ...item, bookmarked: !isCurrentlyBookmarked };
                     }
                     return item;
@@ -211,12 +277,35 @@
         {#each filteredItems as item (item.id)}
             {#if item.type === "picture"}
                 <div class="relative border-b border-gray-200">
-                    <img
-                        src={item.imageUrl ||
-                            "https://via.placeholder.com/800x600?text=No+Image"}
-                        alt="Feed image"
-                        class="w-full h-64 object-cover"
-                    />
+                    <a
+                        href={item.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        on:click={() => markAsSeen(item.id)}
+                    >
+                        <img
+                            src={item.imageUrl ||
+                                "https://via.placeholder.com/800x600?text=No+Image"}
+                            alt="Feed image"
+                            class="w-full h-64 object-cover {item.seen &&
+                            !item.bookmarked
+                                ? 'opacity-50'
+                                : ''}"
+                        />
+                    </a>
+                    <div class="p-2 pb-10">
+                        <a
+                            href={item.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            on:click={() => markAsSeen(item.id)}
+                            class="{item.seen && !item.bookmarked
+                                ? 'text-gray-400'
+                                : 'text-gray-800'} hover:text-indigo-600 hover:underline"
+                        >
+                            {item.title}
+                        </a>
+                    </div>
                     <div class="absolute bottom-2 right-2">
                         <button
                             class="p-2 rounded-full bg-white/80 hover:bg-white transition-colors shadow"
@@ -266,7 +355,12 @@
                             <a
                                 href={item.link}
                                 rel="noopener noreferrer"
-                                class="hover:text-indigo-600 hover:underline"
+                                class="hover:text-indigo-600 hover:underline {item.seen &&
+                                !item.bookmarked
+                                    ? 'text-gray-400'
+                                    : ''}"
+                                on:click={() => markAsSeen(item.id)}
+                                target="_blank"
                             >
                                 {item.title}
                             </a>
