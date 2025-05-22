@@ -1,5 +1,5 @@
 import { json } from "@sveltejs/kit";
-import { getFeedItems } from "$lib/db";
+import { getFeedItems } from "$lib/db-neon";
 import type { RequestEvent } from "@sveltejs/kit";
 
 export async function GET({ url }: RequestEvent) {

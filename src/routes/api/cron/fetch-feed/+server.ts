@@ -1,6 +1,6 @@
 import { json } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
-import { createTable, insertFeedItem } from "$lib/db";
+import { createTable, insertFeedItem } from "$lib/db-neon";
 import { fetchAndParseFeed } from "$lib/feedParser";
 
 // Secret token verification - should match your Vercel cron configuration

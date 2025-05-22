@@ -1,5 +1,25 @@
-import { sql } from '@vercel/postgres';
+import { neon } from '@neondatabase/serverless';
+import 'dotenv/config'; // Load environment variables
 
+// Get the database connection string
+const connectionString = process.env.DATABASE_URL || '';
+
+// Create the SQL client
+export const sql = neon(connectionString);
+
+// Create a test function to verify connection
+export async function testConnection() {
+  try {
+    const result = await sql`SELECT NOW();`;
+    console.log('Neon database connected successfully', result[0]);
+    return true;
+  } catch (error) {
+    console.error('Failed to connect to Neon database:', error);
+    return false;
+  }
+}
+
+// Database operations
 export async function createTable() {
   try {
     await sql`
@@ -63,22 +83,22 @@ export async function insertFeedItem(item: {
 
 export async function getFeedItems(limit = 50, offset = 0, type?: string) {
   try {
-    let query;
+    let result;
     if (type) {
-      query = await sql`
+      result = await sql`
         SELECT * FROM feed_items 
         WHERE type = ${type}
         ORDER BY pub_date DESC 
         LIMIT ${limit} OFFSET ${offset}
       `;
     } else {
-      query = await sql`
+      result = await sql`
         SELECT * FROM feed_items 
         ORDER BY pub_date DESC 
         LIMIT ${limit} OFFSET ${offset}
       `;
     }
-    return query.rows;
+    return result;
   } catch (error) {
     console.error('Error fetching feed items:', error);
     throw error;
