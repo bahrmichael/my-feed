@@ -3,19 +3,7 @@ import type { RequestEvent } from "@sveltejs/kit";
 import { createTable, insertFeedItem, getFeeds } from "$lib/db-neon";
 import { fetchAndParseFeed } from "$lib/feedParser";
 
-// Secret token verification - should match your Vercel cron configuration
-const CRON_SECRET = process.env.CRON_SECRET;
-
 export async function GET({ request }: RequestEvent) {
-  // Verify the request is from Vercel cron
-  // const authHeader = request.headers.get("authorization");
-  // if (
-  //   !authHeader ||
-  //   !authHeader.startsWith("Bearer ") ||
-  //   authHeader.split(" ")[1] !== CRON_SECRET
-  // ) {
-  //   return new Response("Unauthorized", { status: 401 });
-  // }
 
   try {
     // Ensure the tables exist
@@ -39,11 +27,13 @@ export async function GET({ request }: RequestEvent) {
 
       // Insert items into the database
       const feedResults = [];
+      let newItemsCount = 0;
       for (const item of feedItems) {
         const result = await insertFeedItem(item);
         // Get the inserted ID from the returning clause if available
         // If result[0] is undefined, it means the item already existed (ON CONFLICT DO NOTHING)
         if (result && result.length > 0) {
+          newItemsCount++;
           const insertedId = result[0].id;
           feedResults.push({
             id: insertedId,
@@ -59,13 +49,18 @@ export async function GET({ request }: RequestEvent) {
       allResults.push({
         feed: feed.name,
         processed: feedResults.length,
+        newItems: newItemsCount,
         items: feedResults,
       });
     }
 
+    // Calculate total new items across all feeds
+    const totalNewItems = allResults.reduce((total, result) => total + result.newItems, 0);
+    
     return json({
       success: true,
       message: `Processed ${allResults.length} feeds`,
+      totalNewItems,
       results: allResults,
     });
   } catch (error: any) {

@@ -27,8 +27,8 @@
         window.fetch = function(input, init) {
             const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
             
-            // Only add auth header for API requests that aren't cron routes
-            if (url.includes('/api/') && !url.includes('/api/cron/')) {
+            // Add auth header for all API requests including the cron routes
+            if (url.includes('/api/')) {
                 init = init || {};
                 init.headers = init.headers || {};
                 

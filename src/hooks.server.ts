@@ -11,8 +11,8 @@ testConnection().then(success => {
 });
 
 export const handle: Handle = async ({ event, resolve }) => {
-  // Check if it's an API route but not a cron route
-  if (event.url.pathname.startsWith('/api/') && !event.url.pathname.startsWith('/api/cron/')) {
+  // Check if it's an API route
+  if (event.url.pathname.startsWith('/api/')) {
     // Get password from request
     const password = event.request.headers.get('X-Password');
     

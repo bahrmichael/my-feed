@@ -54,7 +54,9 @@ export async function parseHackerNewsFeed(xmlData: string) {
     return {
       title: item.title.replace(/ \([0-9]+ points\)$/, "").trim(), // Clean title and trim
       link: item.link,
-      pubDate: new Date(item.pubDate),
+      // Instead of the publish date we're just using the current date. This makes sure
+      // that new posts appear on the top.
+      pubDate: new Date(),
       type: "article",
       source: "hackernews",
     };
@@ -141,8 +143,11 @@ export async function parseRedditFeed(xmlData: string, feedName: string) {
             ? entry.title
             : entry.title.toString(),
         link: link,
-        pubDate: new Date(entry.published || entry.updated),
-        type: imageUrl ? "picture" : "article", // If we have an image, mark as picture type
+        // Instead of the publish date we're just using the current date. This makes sure
+        // that new posts appear on the top.
+        pubDate: new Date(),
+        // Always set Factorio posts as articles regardless of image
+        type: "article",
         source: feedName, // Use the feed name as the source
         imageUrl: imageUrl,
       };

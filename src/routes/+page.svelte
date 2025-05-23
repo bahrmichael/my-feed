@@ -19,12 +19,49 @@
     let selectedFeed = "Articles";
     let feedItems: FeedItem[] = [];
     let loading = false;
+    let refreshing = false;
+    let refreshMessage = "";
     let hasMore = true;
     let offset = 0;
     let limit = 5;
 
     // Browser-only flag to prevent server-side fetch
     let isBrowser = false;
+
+    // Function to refresh feed by calling the API
+    async function refreshFeed() {
+        if (!isBrowser || refreshing) return;
+
+        refreshing = true;
+        refreshMessage = "";
+
+        try {
+            const response = await fetch("/api/cron/fetch-feed");
+            const data = await response.json();
+
+            if (data.success) {
+                refreshMessage = `Loaded ${data.totalNewItems} new item${data.totalNewItems !== 1 ? "s" : ""}`;
+                // Reload the current feed to show new items
+                await loadFeedItems();
+            } else {
+                console.error("Error refreshing feed:", data.error);
+                refreshMessage = "Failed to refresh feed";
+            }
+        } catch (error) {
+            console.error("Error refreshing feed:", error);
+            refreshMessage = "Failed to refresh feed";
+        } finally {
+            refreshing = false;
+
+            // If we got new items, show a toast notification
+            if (refreshMessage && refreshMessage.includes("Loaded")) {
+                // Clear the message after 5 seconds
+                setTimeout(() => {
+                    refreshMessage = "";
+                }, 5000);
+            }
+        }
+    }
 
     // Helper function to mark all non-bookmarked items as seen
     async function markUnseenItemsAsSeen() {
@@ -253,10 +290,36 @@
     $: filteredItems = feedItems;
 </script>
 
-<div class="max-w-md mx-auto bg-white min-h-screen">
+<div class="max-w-md mx-auto bg-white min-h-screen relative">
+    {#if refreshMessage}
+        <div class="fixed top-0 left-0 right-0 z-50 flex justify-center">
+            <div
+                class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md shadow-lg"
+            >
+                {refreshMessage}
+            </div>
+        </div>
+    {/if}
     <header
         class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 z-10"
     >
+        <div class="flex items-center justify-between mb-2">
+            <div class="text-xl font-semibold">My Feed</div>
+            <button
+                on:click={refreshFeed}
+                class="px-3 py-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors flex items-center"
+                disabled={refreshing}
+            >
+                {#if refreshing}
+                    <div
+                        class="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"
+                    ></div>
+                    Refreshing...
+                {:else}
+                    Refresh
+                {/if}
+            </button>
+        </div>
         <div class="relative">
             <select
                 bind:value={selectedFeed}
